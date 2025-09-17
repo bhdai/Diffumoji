@@ -16,9 +16,9 @@ def main():
     model = model.to(device)
 
     # load the dataset
-    dataset = load_dataset("arattinger/noto-emoji-captions")
+    dataset = load_dataset("arattinger/noto-emoji-captions", split="train")
 
-    text_dataset = dataset["train"].select_columns(["text"])
+    text_dataset = dataset.select_columns(["text"])
 
     # wrap the dataset in a dataloader
     dl = DataLoader(
