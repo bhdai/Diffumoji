@@ -133,7 +133,7 @@ class Unet(nn.Module):
         # downsampling path
         dims = [dim] + [dim * m for m in dim_mults]
         in_out = list(zip(dims[:-1], dims[1:]))
-        self.downs = nn.ModuleList() # container for downsampling layyers
+        self.downs = nn.ModuleList() # container for downsampling layers
 
         for ind, (dim_in, dim_out) in enumerate(in_out):
             is_last = ind >= (len(in_out) - 1)
