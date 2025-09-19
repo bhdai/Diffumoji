@@ -1,1 +1,4 @@
+# results from training
+results/
+
 *.pt
