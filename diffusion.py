@@ -1,3 +1,4 @@
+from datasets import tqdm
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -140,6 +141,35 @@ class GaussianDiffusion(nn.Module):
         nonzero_mask = (t > 0).float().reshape(batch_size, *((1,) * (len(x.shape) - 1)))
 
         return posterior_mean + nonzero_mask * posterior_std * noise
+
+    def unnormalize(self, img):
+        """convert image from [-1, 1] to [0, 1] range"""
+        return (img + 1) * 0.5
+
+    @torch.no_grad()
+    def sample(self, batch_size=16, context=None, return_all_timesteps=False):
+        """generate samples from noise"""
+        shape = (batch_size, self.channels, self.image_size, self.image_size)
+        device = next(self.model.parameters()).device
+        img = torch.randn(shape, device=device)
+        imgs = [img]
+
+        if context is None:
+            # for now let's require contexxt to be provided
+            raise ValueError("Context must be provided for sampling")
+
+        for t in tqdm(
+            reversed(range(0, self.num_timesteps)),
+            desc="sampling loop time step",
+            total=self.num_timesteps,
+        ):
+            t_batch = torch.full((batch_size,), t, device=device, dtype=torch.long)
+            img = self.p_sample(img, t_batch, context)
+            imgs.append(img)
+
+        res = img if not return_all_timesteps else torch.stack(imgs, dim=1)
+        res = self.unnormalize(res)
+        return res
 
 
 def extract(a, t, x_shape):
