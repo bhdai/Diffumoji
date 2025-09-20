@@ -214,7 +214,6 @@ class Unet(nn.Module):
                 skip = skips.pop()
                 x = torch.cat((x, skip), dim=1)  # concatenate along channel dim
 
-            x = torch.cat((x, skip), dim=1)  # concatenate along channel dim
             x = block1(x, combined_context)
             x = block2(x, combined_context)
 
