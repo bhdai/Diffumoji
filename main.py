@@ -42,10 +42,10 @@ def train():
 
     # training loop
     current_step = 0
-    # create an infinite interator from our dataloader
+    # create an infinite iterator from our dataloader
     data_iterator = itertools.cycle(dataloader)
 
-    # use tqdm for a live progrss bar
+    # use tqdm for a live progress bar
     pbar = tqdm(initial=current_step, total=num_train_steps)
 
     while current_step < num_train_steps:
