@@ -1,3 +1,4 @@
+import argparse
 import itertools
 import os
 from tqdm import tqdm
@@ -10,17 +11,25 @@ from unet import Unet
 from diffusion import GaussianDiffusion
 
 
-def train():
-    image_size = 64
-    timesteps = 1000
-    batch_size = 32
-    learning_rate = 1e-4
-    num_train_steps = 100000  # example value
-    sample_every = 5000  # sample and save checkpoint every N steps
+def train(args):
+    image_size = args.image_size
+    timesteps = args.timesteps
+    batch_size = args.batch_size
+    learning_rate = args.learning_rate
+    num_train_steps = args.num_train_steps  # example value
+    sample_every = args.sample_every  # sample and save checkpoint every N steps
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     dataset = DiffumojiDataset(image_size=image_size)
+
+    # handling for overfit test
+    if args.overfit_test_size is not None:
+        print(f"RUNNING OVERFIT TEST WITH {args.overfit_test_size} SAMPLES")
+        dataset.dataset = dataset.dataset.select(range(args.overfit_test_size))
+        # also need to slice the embeddings
+        dataset.embeddings = dataset.embeddings[: args.overfit_test_size]
+
     dataloader = DataLoader(
         dataset, batch_size=batch_size, shuffle=True, num_workers=4, pin_memory=True
     )
@@ -99,4 +108,40 @@ def train():
 
 
 if __name__ == "__main__":
-    train()
+    parser = argparse.ArgumentParser(description="Train a Diffusion Model")
+
+    # add argumetns
+    parser.add_argument("--image_size", type=int, default=64, help="Size of the images")
+    parser.add_argument(
+        "--timesteps", type=int, default=1000, help="Number of diffusion timesteps"
+    )
+    parser.add_argument(
+        "--batch_size", type=int, default=32, help="Batch size for training"
+    )
+    parser.add_argument(
+        "--learning_rate",
+        type=float,
+        default=1e-4,
+        help="Learning rate for the optimizer",
+    )
+    parser.add_argument(
+        "--num_train_steps",
+        type=int,
+        default=10000,
+        help="Total number of training steps",
+    )
+    parser.add_argument(
+        "--sample_every",
+        type=int,
+        default=5000,
+        help="Frequency of saving samples and checkpoints",
+    )
+    parser.add_argument(
+        "--overfit_test_size",
+        type=int,
+        default=None,
+        help="If set, uses a tiny subset of the data to test for overfitting",
+    )
+
+    args = parser.parse_args()
+    train(args)
