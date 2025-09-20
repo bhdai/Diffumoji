@@ -172,9 +172,11 @@ class Unet(nn.Module):
         skips = []
         for block1, block2, downsample in self.downs:
             x = block1(x, combined_context)
-            skips.append(x)
             x = block2(x, combined_context)
-            skips.append(x)
+
+            # only save skip connection if this level actually downsample
+            if not isinstance(downsample, nn.Identity):
+                skips.append(x)
             x = downsample(x)
 
         x = self.mid_block1(x, combined_context)
@@ -182,11 +184,14 @@ class Unet(nn.Module):
 
         for upsample, block1, block2 in self.ups:
             x = upsample(x)
-            skip = skips.pop() # pop skip connection
-            x = torch.cat((x, skip), dim=1) # concatenate along channel dim
+
+            # only use skip connections if this level actually upsamples
+            if not isinstance(upsample, nn.Identity):
+                skip = skips.pop()
+                x = torch.cat((x, skip), dim=1)  # concatenate along channel dim
+
+            x = torch.cat((x, skip), dim=1)  # concatenate along channel dim
             x = block1(x, combined_context)
-            skip = skips.pop()
-            x = torch.cat((x, skip), dim=1)
             x = block2(x, combined_context)
 
         return self.final_conv(x)
