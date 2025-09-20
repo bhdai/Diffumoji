@@ -115,10 +115,17 @@ class GaussianDiffusion(nn.Module):
         return sqrt_recip_alphas_cumprod * x_t - sqrt_recipm1_alphas_cumprod * noise
 
     @torch.no_grad()
-    def p_sample(self, x, t, context):
+    def p_sample(self, x, t, context, cfg_scale=3.0):
         """should be used in inference/sampling, sample x_{t-1} from the model at timestep t"""
-        batch_size = x.shape[0]
-        model_out = self.model(x, t, context)
+        # get both conditional and unconditional predictions
+        uncond_context = torch.zeros_like(context)
+        uncond_pred = self.model(x, t, uncond_context)
+
+        # conditional prediction (real context)
+        cond_pred = self.model(x, t, context)
+
+        # combine prediction using CFG formula
+        model_out = uncond_pred + cfg_scale * (cond_pred - uncond_pred)
 
         if self.objective == "pred_noise":
             x_start_pred = self.predict_start_from_noise(x, t, model_out)
@@ -138,7 +145,7 @@ class GaussianDiffusion(nn.Module):
         # sample from posterior
         noise = torch.randn_like(x)
         # only add noise if t > 0
-        nonzero_mask = (t > 0).float().reshape(batch_size, *((1,) * (len(x.shape) - 1)))
+        nonzero_mask = (t > 0).float().reshape(x.shape[0], *((1,) * (len(x.shape) - 1)))
 
         return posterior_mean + nonzero_mask * posterior_std * noise
 
@@ -147,7 +154,9 @@ class GaussianDiffusion(nn.Module):
         return (img + 1) * 0.5
 
     @torch.no_grad()
-    def sample(self, batch_size=16, context=None, return_all_timesteps=False):
+    def sample(
+        self, batch_size=16, context=None, cfg_scale=3.0, return_all_timesteps=False
+    ):
         """generate samples from noise"""
         shape = (batch_size, self.channels, self.image_size, self.image_size)
         device = next(self.model.parameters()).device
@@ -155,7 +164,7 @@ class GaussianDiffusion(nn.Module):
         imgs = [img]
 
         if context is None:
-            # for now let's require contexxt to be provided
+            # for now let's require context to be provided
             raise ValueError("Context must be provided for sampling")
 
         for t in tqdm(
@@ -164,7 +173,7 @@ class GaussianDiffusion(nn.Module):
             total=self.num_timesteps,
         ):
             t_batch = torch.full((batch_size,), t, device=device, dtype=torch.long)
-            img = self.p_sample(img, t_batch, context)
+            img = self.p_sample(img, t_batch, context, cfg_scale)
             imgs.append(img)
 
         res = img if not return_all_timesteps else torch.stack(imgs, dim=1)

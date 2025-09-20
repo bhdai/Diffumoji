@@ -82,7 +82,7 @@ def train(args):
                 # use a fixed context for consistent sampling
                 fixed_context = contexts[:4]
                 sampled_images = diffusion_model.sample(
-                    batch_size=4, context=fixed_context
+                    batch_size=4, context=fixed_context, cfg_scale=args.cfg_scale
                 )
                 save_image(
                     sampled_images,
@@ -141,6 +141,10 @@ if __name__ == "__main__":
         type=int,
         default=None,
         help="If set, uses a tiny subset of the data to test for overfitting",
+    )
+
+    parser.add_argument(
+        "--cfg_scale", type=float, default=3.0, help="Classifier-free guidance scale"
     )
 
     args = parser.parse_args()

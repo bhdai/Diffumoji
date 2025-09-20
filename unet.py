@@ -127,8 +127,11 @@ class Unet(nn.Module):
     A U-Net is a model architecture that consists of a downsampling path and an upsampling path
     """
 
-    def __init__(self, dim, condition_dim, dim_mults=(1, 2, 4, 8), channels=3):
+    def __init__(
+        self, dim, condition_dim, dim_mults=(1, 2, 4, 8), channels=3, uncond_prob=0.1
+    ):
         super().__init__()
+        self.uncond_prob = uncond_prob
         self.init_conv = nn.Conv2d(channels, dim, kernel_size=3, padding=1)
         context_dim = dim * 4  # context space
         # define time embedding MLP
@@ -187,6 +190,16 @@ class Unet(nn.Module):
     def forward(self, x, time, context):
         time_emb = self.time_mlp(time)
         text_emb = self.condition_mlp(context)
+
+        # randomly drop text embeddings during training
+        if self.training and self.uncond_prob > 0:
+            uncond_mask = (
+                torch.rand(context.shape[0], device=context.device) < self.uncond_prob
+            )
+            text_emb = torch.where(
+                uncond_mask.unsqueeze(-1), torch.zeros_like(text_emb), text_emb
+            )
+
         combined_context = time_emb + text_emb
 
         x = self.init_conv(x)
