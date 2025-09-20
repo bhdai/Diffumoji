@@ -170,15 +170,14 @@ class Unet(nn.Module):
         self.ups = nn.ModuleList()
         for ind, (dim_in, dim_out) in enumerate(reversed(in_out)):
             is_last = ind >= (len(in_out) - 1)
+
+            # first block takes double channels when there's a skip connection
+            block1_in_dim = dim_in * 2 if not is_last else dim_out
             self.ups.append(
                 nn.ModuleList(
                     [
                         Upsample(dim_out, dim_in) if not is_last else nn.Identity(),
-                        # each upsampling level takes dim_in * 2 as input because it receives the
-                        # concatenated features from the downsampling path as well
-                        ResnetBlock(
-                            dim_in * 2, dim_in, context_dim=context_dim
-                        ),  # *2 here for skip connection
+                        ResnetBlock(block1_in_dim, dim_in, context_dim=context_dim),
                         ResnetBlock(dim_in, dim_in, context_dim=context_dim),
                     ]
                 )
