@@ -1,4 +1,6 @@
 # results from training
 results/
 
+__pycache__/
+
 *.pt
