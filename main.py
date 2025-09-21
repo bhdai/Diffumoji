@@ -1,3 +1,4 @@
+import numpy as np
 import wandb
 import argparse
 import itertools
@@ -92,7 +93,13 @@ def train(args):
                 sampled_images = diffusion_model.sample(
                     batch_size=4, context=fixed_context, cfg_scale=args.cfg_scale
                 )
-                wandb_images = [wandb.Image(img) for img in sampled_images]
+                # convert tensors to wandb images correctly
+                # currently (N, C, H, W), wandb expect (H, W, C)
+                wandb_images = []
+                for i in range(sampled_images.shape[0]):
+                    img = sampled_images[i].permute(1, 2, 0).cpu().numpy()
+                    img = np.clip(img, 0, 1)  # make sure image is normalized to [0, 1]
+                    wandb_images.append(wandb.Image(img, caption=f"Sample {i + 1}"))
                 wandb.log({"samples": wandb_images})
                 save_image(
                     sampled_images,
