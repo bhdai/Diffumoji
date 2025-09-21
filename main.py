@@ -7,7 +7,7 @@ from tqdm import tqdm
 import torch
 from torch.optim import Adam
 from torch.utils.data import DataLoader
-from torchvision.utils import save_image
+from torchvision.utils import make_grid, save_image
 from dataset import DiffumojiDataset
 from unet import Unet
 from diffusion import GaussianDiffusion
@@ -93,18 +93,26 @@ def train(args):
                 sampled_images = diffusion_model.sample(
                     batch_size=4, context=fixed_context, cfg_scale=args.cfg_scale
                 )
-                # convert tensors to wandb images correctly
-                # currently (N, C, H, W), wandb expect (H, W, C)
-                wandb_images = []
-                for i in range(sampled_images.shape[0]):
-                    img = sampled_images[i].permute(1, 2, 0).cpu().numpy()
-                    img = np.clip(img, 0, 1)  # make sure image is normalized to [0, 1]
-                    wandb_images.append(wandb.Image(img, caption=f"Sample {i + 1}"))
-                wandb.log({"samples": wandb_images})
                 save_image(
                     sampled_images,
                     f"results/sample_{current_step}.png",
                     nrow=2,
+                )
+                # create a grid image for wandb
+                grid_tensor = make_grid(
+                    sampled_images, nrow=2, padding=2, normalize=False
+                )
+                # grid_tensor is (C, H, W), wandb_expect (H, W, C)
+                grid_img = grid_tensor.permute(1, 2, 0).cpu().numpy()
+                grid_img = np.clip(
+                    grid_img, 0, 1
+                )  # make sure image is normalized to [0, 1]
+                wandb.log(
+                    {
+                        "sample": wandb.Image(
+                            grid_img, caption=f"Samples at step {current_step}"
+                        )
+                    }
                 )
 
             diffusion_model.train()  # back to training mode
