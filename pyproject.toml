@@ -14,5 +14,5 @@ dependencies = [
     "torchaudio",
     "torchvision",
     "transformers>=4.56.1",
-    "wandb>=0.22.0",
+    "wandb[media]>=0.22.0",
 ]
