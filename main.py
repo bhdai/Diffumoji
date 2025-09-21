@@ -1,3 +1,4 @@
+import wandb
 import argparse
 import itertools
 import os
@@ -12,6 +13,12 @@ from diffusion import GaussianDiffusion
 
 
 def train(args):
+    # initialize W&B
+    wandb.init(
+        project="Diffumoji",
+        config=vars(args),  # automatically logs all command-line arguments
+    )
+
     image_size = args.image_size
     timesteps = args.timesteps
     batch_size = args.batch_size
@@ -72,6 +79,7 @@ def train(args):
         optimizer.step()
 
         pbar.set_description(f"loss: {loss.item():.4f}")
+        wandb.log({"loss": loss.item()})
 
         # save samples and checkpoints periodically
         if current_step != 0 and current_step % sample_every == 0:
@@ -83,6 +91,13 @@ def train(args):
                 fixed_context = contexts[:4]
                 sampled_images = diffusion_model.sample(
                     batch_size=4, context=fixed_context, cfg_scale=args.cfg_scale
+                )
+                wandb.log(
+                    {
+                        "samples": wandb.Image(
+                            sampled_images, caption="Generated samples"
+                        )
+                    }
                 )
                 save_image(
                     sampled_images,
@@ -105,6 +120,7 @@ def train(args):
 
     pbar.close()
     print("Training complete!")
+    wandb.finish()
 
 
 if __name__ == "__main__":
