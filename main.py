@@ -92,13 +92,8 @@ def train(args):
                 sampled_images = diffusion_model.sample(
                     batch_size=4, context=fixed_context, cfg_scale=args.cfg_scale
                 )
-                wandb.log(
-                    {
-                        "samples": wandb.Image(
-                            sampled_images, caption="Generated samples"
-                        )
-                    }
-                )
+                wandb_images = [wandb.Image(img) for img in sampled_images]
+                wandb.log({"samples": wandb_images})
                 save_image(
                     sampled_images,
                     f"results/sample_{current_step}.png",
