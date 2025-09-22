@@ -49,6 +49,7 @@ def train(args):
         image_size=image_size,
         timesteps=timesteps,
         objective="pred_noise",
+        beta_schedule=args.noise_schedule,
     )
     diffusion_model.to(device)
 
@@ -177,6 +178,13 @@ if __name__ == "__main__":
 
     parser.add_argument(
         "--cfg_scale", type=float, default=1.5, help="Classifier-free guidance scale"
+    )
+
+    parser.add_argument(
+        "--noise_schedule",
+        type=str,
+        default="cosine",
+        help="Beta schedule (linear, cosine, or sigmoid)",
     )
 
     args = parser.parse_args()
