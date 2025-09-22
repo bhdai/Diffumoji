@@ -11,6 +11,10 @@ class DiffumojiDataset(Dataset):
         self.transform = transforms.Compose(
             [
                 transforms.Resize((image_size, image_size)),
+                transforms.RandomHorizontalFlip(),
+                transforms.ColorJitter(
+                    brightness=0.1, contrast=0.1, saturation=0.1, hue=0.1
+                ),
                 transforms.ToTensor(),
                 transforms.Normalize(
                     (0.5, 0.5, 0.5), (0.5, 0.5, 0.5)
