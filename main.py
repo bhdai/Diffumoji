@@ -5,6 +5,7 @@ import itertools
 import os
 from tqdm import tqdm
 import torch
+from torch.amp import GradScaler, autocast
 from ema_pytorch import EMA
 from torch.optim import Adam
 from torch.utils.data import DataLoader
@@ -57,6 +58,8 @@ def train(args):
 
     ema = EMA(diffusion_model, beta=0.9999, update_every=10).to(device)
 
+    scaler = GradScaler()
+
     os.makedirs("results", exist_ok=True)
 
     print("All set, good to go!")
@@ -75,13 +78,19 @@ def train(args):
         images = images.to(device)
         contexts = contexts.to(device)
 
-        # calculate loss
-        loss = diffusion_model.p_losses(images, contexts)
+        # use autocast for forward pass
+        with autocast(
+            device_type="cuda" if torch.cuda.is_available() else "cpu",
+            dtype=torch.float16,
+        ):
+            # calculate loss
+            loss = diffusion_model.p_losses(images, contexts)
 
-        # backpropagation
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step()
+        # scale the loss and backward
+        scaler.scale(loss).backward()
+        scaler.step(optimizer)  # upscale the gradients
+        scaler.update()
+        optimizer.zero_grad(set_to_none=True)
         ema.update()  # update ema after each optimizer step
 
         pbar.set_description(f"loss: {loss.item():.4f}")
@@ -130,6 +139,7 @@ def train(args):
                 "ema_model_state_dict": ema.ema_model.state_dict(),
                 "optimizer_state_dict": optimizer.state_dict(),
                 "loss": loss.item(),
+                "scaler_state_dict": scaler.state_dict(),
             }
             torch.save(checkpoint, f"results/checkpoint_{current_step}.pt")
         current_step += 1
