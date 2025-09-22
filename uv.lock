@@ -349,6 +349,7 @@ version = "0.1.0"
 source = { virtual = "." }
 dependencies = [
     { name = "datasets" },
+    { name = "ema-pytorch" },
     { name = "ipykernel" },
     { name = "ipywidgets" },
     { name = "matplotlib" },
@@ -363,6 +364,7 @@ dependencies = [
 [package.metadata]
 requires-dist = [
     { name = "datasets", specifier = ">=4.1.0" },
+    { name = "ema-pytorch", specifier = ">=0.7.7" },
     { name = "ipykernel", specifier = ">=6.30.1" },
     { name = "ipywidgets", specifier = ">=8.1.7" },
     { name = "matplotlib", specifier = ">=3.10.6" },
@@ -381,6 +383,18 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/12/80/630b4b88364e9a8c8c5797f4602d0f76ef820909ee32f0bacb9f90654042/dill-0.4.0.tar.gz", hash = "sha256:0633f1d2df477324f53a895b02c901fb961bdbf65a17122586ea7019292cbcf0", size = 186976, upload-time = "2025-04-16T00:41:48.867Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/50/3d/9373ad9c56321fdab5b41197068e1d8c25883b3fea29dd361f9b55116869/dill-0.4.0-py3-none-any.whl", hash = "sha256:44f54bf6412c2c8464c14e8243eb163690a9800dbe2c367330883b19c7561049", size = 119668, upload-time = "2025-04-16T00:41:47.671Z" },
+]
+
+[[package]]
+name = "ema-pytorch"
+version = "0.7.7"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "torch" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/3c/81/c78532837a00578dfe752d0cedab3fe68f97b055c2b55a2c3962555a5eaa/ema_pytorch-0.7.7.tar.gz", hash = "sha256:ecce0e3439e03c00f95a253d6f15ada415fcab09c2c0bd15f30349d375c69ad7", size = 9762, upload-time = "2024-12-03T21:57:17.749Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/7d/41/7b35da1fce71ec7f9266992a6d6a918a09b435eaf0929ba1dd5375003537/ema_pytorch-0.7.7-py3-none-any.whl", hash = "sha256:320b68ac33136b558a31cb383f8183aae57f7e9d92166d6f072410df8b0a00de", size = 9807, upload-time = "2024-12-03T21:57:16.759Z" },
 ]
 
 [[package]]
