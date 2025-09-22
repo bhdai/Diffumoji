@@ -28,6 +28,9 @@ class GaussianDiffusion(nn.Module):
         # they are on the same device as model parameters
         # can be access as self.name
         register_buffer = lambda name, val: self.register_buffer(name, val.float())
+        assert beta_schedule in ["linear", "cosine", "sigmoid"], (
+            "beta_schedule must be one of 'linear', 'cosine', or 'sigmoid'"
+        )
         betas = get_beta_schedule(beta_schedule, timesteps)
         self.num_timesteps = int(betas.shape[0])
         alphas = 1.0 - betas
