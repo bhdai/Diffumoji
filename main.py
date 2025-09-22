@@ -15,6 +15,32 @@ from unet import Unet
 from diffusion import GaussianDiffusion
 
 
+def load_checkpoint(path, model, optimizer, ema, scaler, device):
+    print(f"Loading checkpoint from {path}")
+    checkpoint = torch.load(path, map_location=device)
+    model.model.load_state_dict(checkpoint["model_state_dict"])
+
+    optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+    for state in optimizer.state.values():
+        for k, v in state.items():
+            if isinstance(v, torch.Tensor):
+                state[k] = v.to(device)
+
+    if "ema_model_state_dict" in checkpoint:
+        ema.ema_model.load_state_dict(checkpoint["ema_model_state_dict"])
+    else:
+        print("EMA state dict not found in checkpoint.")
+
+    if "scaler_state_dict" in checkpoint:
+        scaler.load_state_dict(checkpoint["scaler_state_dict"])
+    else:
+        print("Scaler state dict not found in checkpoint.")
+
+    start_step = checkpoint["step"]
+    print(f"Resumed from step {start_step}")
+    return start_step
+
+
 def train(args):
     # initialize W&B
     wandb.init(
@@ -66,6 +92,10 @@ def train(args):
 
     # training loop
     current_step = 0
+    if args.resume_from_checkpoint:
+        current_step = load_checkpoint(
+            args.resume_from_checkpoint, diffusion_model, optimizer, ema, scaler, device
+        )
     # create an infinite iterator from our dataloader
     data_iterator = itertools.cycle(dataloader)
 
@@ -195,6 +225,13 @@ if __name__ == "__main__":
         type=str,
         default="cosine",
         help="Beta schedule (linear, cosine, or sigmoid)",
+    )
+
+    parser.add_argument(
+        "--resume_from_checkpoint",
+        type=str,
+        default=None,
+        help="Path to checkpoint to resume training from",
     )
 
     args = parser.parse_args()
