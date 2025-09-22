@@ -5,6 +5,7 @@ import itertools
 import os
 from tqdm import tqdm
 import torch
+from ema_pytorch import EMA
 from torch.optim import Adam
 from torch.utils.data import DataLoader
 from torchvision.utils import make_grid, save_image
@@ -24,7 +25,7 @@ def train(args):
     timesteps = args.timesteps
     batch_size = args.batch_size
     learning_rate = args.learning_rate
-    num_train_steps = args.num_train_steps  # example value
+    num_train_steps = args.num_train_steps
     sample_every = args.sample_every  # sample and save checkpoint every N steps
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -53,6 +54,8 @@ def train(args):
 
     optimizer = Adam(diffusion_model.parameters(), lr=learning_rate)
 
+    ema = EMA(diffusion_model, beta=0.9999, update_every=10).to(device)
+
     os.makedirs("results", exist_ok=True)
 
     print("All set, good to go!")
@@ -78,6 +81,7 @@ def train(args):
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
+        ema.update()  # update ema after each optimizer step
 
         pbar.set_description(f"loss: {loss.item():.4f}")
         wandb.log({"loss": loss.item()})
@@ -87,12 +91,13 @@ def train(args):
             print(f"\nStep {current_step}: Saving checkpoint and sampling...")
 
             diffusion_model.eval()  # switch to evaluation mode
+            ema.ema_model.eval()
             with torch.no_grad():
                 # use a fixed context for consistent sampling
                 fixed_context = contexts[:4]
-                sampled_images = diffusion_model.sample(
+                sampled_images = ema.ema_model.sample(
                     batch_size=4, context=fixed_context, cfg_scale=args.cfg_scale
-                )
+                )  # type: ignore
                 save_image(
                     sampled_images,
                     f"results/sample_{current_step}.png",
@@ -109,7 +114,7 @@ def train(args):
                 )  # make sure image is normalized to [0, 1]
                 wandb.log(
                     {
-                        "sample": wandb.Image(
+                        "samples": wandb.Image(
                             grid_img, caption=f"Samples at step {current_step}"
                         )
                     }
@@ -121,6 +126,7 @@ def train(args):
             checkpoint = {
                 "step": current_step,
                 "model_state_dict": diffusion_model.model.state_dict(),
+                "ema_model_state_dict": ema.ema_model.state_dict(),
                 "optimizer_state_dict": optimizer.state_dict(),
                 "loss": loss.item(),
             }
@@ -170,7 +176,7 @@ if __name__ == "__main__":
     )
 
     parser.add_argument(
-        "--cfg_scale", type=float, default=3.0, help="Classifier-free guidance scale"
+        "--cfg_scale", type=float, default=1.5, help="Classifier-free guidance scale"
     )
 
     args = parser.parse_args()
