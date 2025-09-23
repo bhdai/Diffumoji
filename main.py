@@ -62,7 +62,7 @@ def train(args):
     # handling for overfit test
     if args.overfit_test_size is not None:
         print(f"RUNNING OVERFIT TEST WITH {args.overfit_test_size} SAMPLES")
-        dataset.dataset = dataset.dataset.select(range(args.overfit_test_size))
+        dataset.df = dataset.df.iloc[: args.overfit_test_size]
         # also need to slice the embeddings
         dataset.embeddings = dataset.embeddings[: args.overfit_test_size]
 
