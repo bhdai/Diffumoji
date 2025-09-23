@@ -91,7 +91,7 @@ def train(args):
     print("All set, good to go!")
 
     # training loop
-    current_step = 0
+    current_step = 1
     if args.resume_from_checkpoint:
         current_step = load_checkpoint(
             args.resume_from_checkpoint, diffusion_model, optimizer, ema, scaler, device
@@ -102,7 +102,7 @@ def train(args):
     # use tqdm for a live progress bar
     pbar = tqdm(initial=current_step, total=num_train_steps)
 
-    while current_step < num_train_steps:
+    while current_step <= num_train_steps:
         # get the next batch of data
         images, contexts = next(data_iterator)
         images = images.to(device)
