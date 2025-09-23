@@ -7,7 +7,7 @@ from diffusion import GaussianDiffusion
 import os
 
 
-def load_model_from_checkpoint(checkpoint_path, device):
+def load_model_from_checkpoint(checkpoint_path, device, load_ema=True):
     """load the diffusion model and Unet from a checkpoint"""
     print(f"Loading checkpoint from  {checkpoint_path}")
 
@@ -27,7 +27,13 @@ def load_model_from_checkpoint(checkpoint_path, device):
         print(f"Error loading checkpoint: {e}")
         raise
 
-    diffusion_model.model.load_state_dict(checkpoint["model_state_dict"])
+    if load_ema and "ema_model_state_dict" in checkpoint:
+        print("Loading EMA model state dict...")
+        diffusion_model.load_state_dict(checkpoint["ema_model_state_dict"])
+    else:
+        print("Loading regular model state dict...")
+        diffusion_model.model.load_state_dict(checkpoint["model_state_dict"])
+
     print("Model loaded successfully.")
     return diffusion_model
 
