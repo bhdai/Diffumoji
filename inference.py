@@ -32,21 +32,40 @@ def load_model_from_checkpoint(checkpoint_path, device):
     return diffusion_model
 
 
-def get_text_embedding(prompt, device):
-    """Generate CLIP text embedding for the given prompt"""
-    print(f"Generating embedding for prompt: '{prompt}'")
-    # load clip model and processor
-    model_name = "openai/clip-vit-base-patch32"
-    processor = CLIPProcessor.from_pretrained(model_name)
-    model = CLIPModel.from_pretrained(model_name)
-    model = model.to(device)
+class DiffumojiGenerator:
+    def __init__(self, checkpoint_path, device):
+        self.device = device
+        self.diffusion_model = load_model_from_checkpoint(checkpoint_path, device)
+        self.diffusion_model.eval()
 
-    inputs = processor(text=[prompt], return_tensors="pt", padding=True)
-    inputs = {k: v.to(device) for k, v in inputs.items()}
+        print("loading CLIP model...")
+        model_name = "openai/clip-vit-base-patch32"
+        self.clip_processor = CLIPProcessor.from_pretrained(model_name)
+        self.clip_model = CLIPModel.from_pretrained(model_name).to(device)
+        print("CLIP model loaded.")
 
-    with torch.no_grad():
-        embedding = model.get_text_features(**inputs)
-    return embedding
+    def _get_text_embedding(self, prompt):
+        """Generate CLIP text embedding for the given prompt"""
+        print(f"Generating text embedding for prompt: '{prompt}'")
+        inputs = self.clip_processor(text=[prompt], return_tensors="pt", padding=True)
+        inputs = {k: v.to(self.device) for k, v in inputs.items()}
+
+        with torch.no_grad():
+            embedding = self.clip_model.get_text_features(**inputs)
+        return embedding
+
+    def generate(self, prompt, batch_size=1, cfg_scale=1.5):
+        """Generate emoji images from text prompt"""
+        text_embedding = self._get_text_embedding(prompt)
+
+        print("Generating image...")
+        with torch.no_grad():
+            generated_images = self.diffusion_model.sample(
+                batch_size=batch_size,
+                context=text_embedding,
+                cfg_scale=cfg_scale,
+            )
+        return generated_images
 
 
 def main():
@@ -79,17 +98,13 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device {device}")
 
-    diffusion_model = load_model_from_checkpoint(args.checkpoint_path, device)
-    diffusion_model.eval()
-    text_embedding = get_text_embedding(args.prompt, device)
-    print("Generating image...")
-    with torch.no_grad():
-        generated_images = diffusion_model.sample(
-            batch_size=args.batch_size,
-            context=text_embedding,
-            cfg_scale=args.cfg_scale,
-        )
+    generator = DiffumojiGenerator(args.checkpoint_path, device)
 
+    generated_images = generator.generate(
+        prompt=args.prompt,
+        batch_size=args.batch_size,
+        cfg_scale=args.cfg_scale,
+    )
     # make sure the ouput directory exists
     os.makedirs(
         os.path.dirname(args.output_path) if os.path.dirname(args.output_path) else ".",
