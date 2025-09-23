@@ -1,9 +1,21 @@
 import torch
+import pandas as pd
 from datasets import load_dataset
 from torch.cuda import is_available
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, Dataset
 from tqdm import tqdm
 from transformers import CLIPModel, CLIPProcessor
+
+
+class TextDataset(Dataset):
+    def __init__(self, texts):
+        self.texts = texts
+
+    def __len__(self):
+        return len(self.texts)
+
+    def __getitem__(self, idx):
+        return self.texts[idx]
 
 
 def main():
@@ -15,12 +27,11 @@ def main():
     model = CLIPModel.from_pretrained(model_name)
     model = model.to(device)
 
-    # load the dataset
-    dataset = load_dataset("arattinger/noto-emoji-captions", split="train")
+    df = pd.read_csv("data/pairs.csv")
+    texts = df["caption"].tolist()
 
-    text_dataset = dataset.select_columns(["text"])
-
-    # wrap the dataset in a dataloader
+    # create dataset and dataloader
+    text_dataset = TextDataset(texts)
     dl = DataLoader(
         text_dataset,
         batch_size=32,
@@ -32,18 +43,16 @@ def main():
     all_embeddings = []
 
     for batch in tqdm(dl, desc="Processing batches"):
-        # get text from batch
-        texts = batch['text']
-        # process text
-        inputs = processor(text=texts, return_tensors="pt", padding=True)
+        inputs = processor(text=batch, return_tensors="pt", padding=True)
         inputs = {key: value.to(device) for key, value in inputs.items()}
         with torch.no_grad():
             embeddings = model.get_text_features(**inputs)
-        all_embeddings.append(embeddings.cpu()) # move embs to cpu to append to list
+        all_embeddings.append(embeddings.cpu())  # move embs to cpu to append to list
 
     final_embedding = torch.cat(all_embeddings, dim=0)
     torch.save(final_embedding, "text_embeddings.pt")
     print(f"Saved {final_embedding.shape[0]} embeddings to text_embeddings.pt")
+
 
 if __name__ == "__main__":
     main()

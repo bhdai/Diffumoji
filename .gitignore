@@ -5,6 +5,8 @@ __pycache__/
 
 docs/
 
+data/
+
 wandb/
 
 *.pt
