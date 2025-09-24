@@ -64,6 +64,7 @@ def build_dataset():
             img = Image.open(temp_png_path)
             img = img.resize((64, 64), Image.Resampling.LANCZOS)
             img.save(png_path)
+            os.remove(temp_png_path)
 
             base_annotation = annotation.strip()
             dataset_records.append({"image_path": png_path, "caption": base_annotation})
