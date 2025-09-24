@@ -42,9 +42,10 @@ def build_dataset():
         group = row["group"]
         subgroup = row["subgroups"]
 
-        # ensure all components are strings
-        if not all(isinstance(s, str) for s in [annotation, tags, group, subgroup]):
+        if not isinstance(annotation, str) or not isinstance(group, str):
             continue
+        tags = tags if isinstance(tags, str) else ""
+        subgroup = subgroup if isinstance(subgroup, str) else ""
 
         svg_path = os.path.join(OPENMOJI_DIR, "color", "svg", f"{hexcode}.svg")
         png_path = os.path.join(output_dir, f"{hexcode}.png")
@@ -64,27 +65,31 @@ def build_dataset():
             img = img.resize((64, 64), Image.Resampling.LANCZOS)
             img.save(png_path)
 
-            caption_base = annotation.strip()
-            caption_keywords = f"{annotation.strip()}, a symbol of {tags}"
-            caption_hierarchy = (
-                f"An emoji from the {group} category: {annotation.strip()}"
-            )
-            caption_hierarchy_full = f"An emoji from the {group} category and the {subgroup} subgroup: {annotation}"
-            caption_subgroup = f"{annotation}, belonging to the {subgroup} subgroup"
+            base_annotation = annotation.strip()
+            dataset_records.append({"image_path": png_path, "caption": base_annotation})
 
-            dataset_records.append({"image_path": png_path, "caption": caption_base})
-            dataset_records.append(
-                {"image_path": png_path, "caption": caption_keywords}
+            if tags:
+                caption_keywords = f"{base_annotation}, a symbol of {tags}"
+                dataset_records.append(
+                    {"image_path": png_path, "caption": caption_keywords}
+                )
+
+            caption_hierarchy = (
+                f"An emoji from the {group} category: {base_annotation}"
             )
             dataset_records.append(
                 {"image_path": png_path, "caption": caption_hierarchy}
             )
-            dataset_records.append(
-                {"image_path": png_path, "caption": caption_hierarchy_full}
-            )
-            dataset_records.append(
-                {"image_path": png_path, "caption": caption_subgroup}
-            )
+
+            if subgroup:
+                caption_hierarchy_full = f"An emoji from the {group} category and the {subgroup} subgroup: {base_annotation}"
+                dataset_records.append(
+                    {"image_path": png_path, "caption": caption_hierarchy_full}
+                )
+                caption_subgroup = f"{base_annotation}, belonging to the {subgroup} subgroup"
+                dataset_records.append(
+                    {"image_path": png_path, "caption": caption_subgroup}
+                )
 
     print("Saving the final dataset to pairs.csv...")
     final_df = pd.DataFrame(dataset_records)
