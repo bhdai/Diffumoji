@@ -43,10 +43,11 @@ def load_checkpoint(path, model, optimizer, ema, scaler, device):
 
 def train(args):
     # initialize W&B
-    wandb.init(
-        project="Diffumoji",
-        config=vars(args),  # automatically logs all command-line arguments
-    )
+    if not args.no_wandb:
+        wandb.init(
+            project="Diffumoji",
+            config=vars(args),  # automatically logs all command-line arguments
+        )
 
     image_size = args.image_size
     timesteps = args.timesteps
@@ -67,7 +68,12 @@ def train(args):
         dataset.embeddings = dataset.embeddings[: args.overfit_test_size]
 
     dataloader = DataLoader(
-        dataset, batch_size=batch_size, shuffle=True, num_workers=4, pin_memory=True
+        dataset,
+        batch_size=batch_size,
+        shuffle=True,
+        num_workers=args.num_workers,
+        pin_memory=True,
+        persistent_workers=True,
     )
 
     unet_model = Unet(dim=64, condition_dim=512, dim_mults=(1, 2, 4, 8))
@@ -124,7 +130,8 @@ def train(args):
         ema.update()  # update ema after each optimizer step
 
         pbar.set_description(f"loss: {loss.item():.4f}")
-        wandb.log({"loss": loss.item()})
+        if not args.no_wandb:
+            wandb.log({"loss": loss.item()})
 
         # save samples and checkpoints periodically
         if current_step != 0 and current_step % sample_every == 0:
@@ -138,27 +145,26 @@ def train(args):
                 sampled_images = ema.ema_model.sample(
                     batch_size=4, context=fixed_context, cfg_scale=args.cfg_scale
                 )  # type: ignore
-                save_image(
-                    sampled_images,
-                    f"results/sample_{current_step}.png",
-                    nrow=2,
-                )
-                # create a grid image for wandb
                 grid_tensor = make_grid(
                     sampled_images, nrow=2, padding=2, normalize=False
                 )
-                # grid_tensor is (C, H, W), wandb_expect (H, W, C)
-                grid_img = grid_tensor.permute(1, 2, 0).cpu().numpy()
-                grid_img = np.clip(
-                    grid_img, 0, 1
-                )  # make sure image is normalized to [0, 1]
-                wandb.log(
-                    {
-                        "samples": wandb.Image(
-                            grid_img, caption=f"Samples at step {current_step}"
-                        )
-                    }
+                save_image(
+                    grid_tensor,
+                    f"results/sample_{current_step}.png",
                 )
+                if not args.no_wandb:
+                    # grid_tensor is (C, H, W), wandb_expect (H, W, C)
+                    grid_img = grid_tensor.permute(1, 2, 0).cpu().numpy()
+                    grid_img = np.clip(
+                        grid_img, 0, 1
+                    )  # make sure image is normalized to [0, 1]
+                    wandb.log(
+                        {
+                            "samples": wandb.Image(
+                                grid_img, caption=f"Samples at step {current_step}"
+                            )
+                        }
+                    )
 
             diffusion_model.train()  # back to training mode
 
@@ -177,7 +183,8 @@ def train(args):
 
     pbar.close()
     print("Training complete!")
-    wandb.finish()
+    if not args.no_wandb:
+        wandb.finish()
 
 
 if __name__ == "__main__":
@@ -215,23 +222,29 @@ if __name__ == "__main__":
         default=None,
         help="If set, uses a tiny subset of the data to test for overfitting",
     )
-
     parser.add_argument(
         "--cfg_scale", type=float, default=1.5, help="Classifier-free guidance scale"
     )
-
     parser.add_argument(
         "--noise_schedule",
         type=str,
         default="cosine",
         help="Beta schedule (linear, cosine, or sigmoid)",
     )
-
+    parser.add_argument(
+        "--num_workers",
+        type=int,
+        default=8,
+        help="Number of workers for the Dataloader",
+    )
     parser.add_argument(
         "--resume_from_checkpoint",
         type=str,
         default=None,
         help="Path to checkpoint to resume training from",
+    )
+    parser.add_argument(
+        "--no-wandb", action="store_true", help="Disable logging to Weights & Biases"
     )
 
     args = parser.parse_args()
