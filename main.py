@@ -1,4 +1,5 @@
 import numpy as np
+import multiprocessing
 import wandb
 import argparse
 import itertools
@@ -229,7 +230,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--num_workers",
         type=int,
-        default=4,
+        default=multiprocessing.cpu_count(),
         help="Number of workers for the Dataloader",
     )
     parser.add_argument(
