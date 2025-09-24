@@ -37,9 +37,15 @@ def build_dataset():
 
     for index, row in tqdm(metadata_df.iterrows(), total=metadata_df.shape[0]):
         hexcode = row["hexcode"]
-        caption = row["annotation"]
-        if not isinstance(caption, str):
-            continue  # skip row with bad caption
+        annotation = row["annotation"]
+        tags = row["tags"]
+        group = row["group"]
+        subgroup = row["subgroups"]
+
+        # ensure all components are strings
+        if not all(isinstance(s, str) for s in [annotation, tags, group, subgroup]):
+            continue
+
         svg_path = os.path.join(OPENMOJI_DIR, "color", "svg", f"{hexcode}.svg")
         png_path = os.path.join(output_dir, f"{hexcode}.png")
         if os.path.exists(svg_path):
@@ -58,7 +64,27 @@ def build_dataset():
             img = img.resize((64, 64), Image.Resampling.LANCZOS)
             img.save(png_path)
 
-            dataset_records.append({"image_path": png_path, "caption": caption.strip()})
+            caption_base = annotation.strip()
+            caption_keywords = f"{annotation.strip()}, a symbol of {tags}"
+            caption_hierarchy = (
+                f"An emoji from the {group} category: {annotation.strip()}"
+            )
+            caption_hierarchy_full = f"An emoji from the {group} category and the {subgroup} subgroup: {annotation}"
+            caption_subgroup = f"{annotation}, belonging to the {subgroup} subgroup"
+
+            dataset_records.append({"image_path": png_path, "caption": caption_base})
+            dataset_records.append(
+                {"image_path": png_path, "caption": caption_keywords}
+            )
+            dataset_records.append(
+                {"image_path": png_path, "caption": caption_hierarchy}
+            )
+            dataset_records.append(
+                {"image_path": png_path, "caption": caption_hierarchy_full}
+            )
+            dataset_records.append(
+                {"image_path": png_path, "caption": caption_subgroup}
+            )
 
     print("Saving the final dataset to pairs.csv...")
     final_df = pd.DataFrame(dataset_records)

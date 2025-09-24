@@ -4,12 +4,21 @@ from torch.utils.data import Dataset
 from torchvision import transforms
 from PIL import Image
 from tqdm import tqdm
+import random
 
 
 class DiffumojiDataset(Dataset):
     def __init__(self, image_size=64):
-        self.df = pd.read_csv("data/pairs.csv")
-        self.embeddings = torch.load("text_embeddings.pt")
+        df = pd.read_csv("data/pairs.csv")
+        all_embeddings = torch.load("text_embeddings.pt")
+
+        # group by image path to find unique images and their caption indices
+        self.imgpath2idx = (
+            df.groupby("image_path").apply(lambda x: x.index.tolist()).to_dict()
+        )
+        self.unique_imgpath = list(self.imgpath2idx.keys())
+        self.embeddings = all_embeddings
+
         base_transform = transforms.Compose(
             [
                 transforms.Resize((image_size, image_size)),
@@ -29,24 +38,26 @@ class DiffumojiDataset(Dataset):
             ]
         )
 
-        assert len(self.df) == len(self.embeddings), (
-            "Dataset and embeddings length mismatch"
-        )  # type: ignore
+        assert len(df) == len(all_embeddings), "Dataset and embeddings length mismatch"  # type: ignore
 
         self.images = []
         for img_path in tqdm(
-            self.df["image_path"], desc="Loading and processing images"
+            self.unique_imgpath, desc="Loading and processing unique images"
         ):
             img = Image.open(img_path).convert("RGB")
             self.images.append(base_transform(img))
 
     def __len__(self):
-        return len(self.df)  # type: ignore
+        return len(self.unique_imgpath)  # type: ignore
 
     def __getitem__(self, idx):
         # get the image and corresponding embedding for the given index
-        embedding = self.embeddings[idx]
         image = self.images[idx]
+        image_path = self.unique_imgpath[idx]
+        caption_indices = self.imgpath2idx[image_path]
+        rand_idx = torch.randint(len(caption_indices), (1,)).item()
+        choosen_caption_index = caption_indices[rand_idx]
+        embedding = self.embeddings[choosen_caption_index]
 
         if self.aug_transform:
             image = self.aug_transform(image)
