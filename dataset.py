@@ -4,13 +4,14 @@ from torch.utils.data import Dataset
 from torchvision import transforms
 from PIL import Image
 from tqdm import tqdm
-import random
 
 
 class DiffumojiDataset(Dataset):
     def __init__(self, image_size=64, overfit_test_size=None):
         df = pd.read_csv("data/pairs.csv")
         all_embeddings = torch.load("text_embeddings.pt")
+
+        self.overfit_test_size = overfit_test_size
 
         # group by image path to find unique images and their caption indices
         self.imgpath2idx = (
@@ -61,10 +62,13 @@ class DiffumojiDataset(Dataset):
         image = self.images[idx]
         image_path = self.unique_imgpath[idx]
         caption_indices = self.imgpath2idx[image_path]
-        rand_idx = torch.randint(len(caption_indices), (1,)).item()
-        choosen_caption_index = caption_indices[rand_idx]
+        if self.overfit_test_size is not None:
+            choosen_caption_index = caption_indices[0]
+        else:
+            rand_idx = torch.randint(len(caption_indices), (1,)).item()
+            choosen_caption_index = caption_indices[rand_idx]
         embedding = self.embeddings[choosen_caption_index]
 
-        if self.aug_transform:
+        if self.aug_transform and self.overfit_test_size is None:
             image = self.aug_transform(image)
         return image, embedding
