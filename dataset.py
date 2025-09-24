@@ -8,7 +8,7 @@ import random
 
 
 class DiffumojiDataset(Dataset):
-    def __init__(self, image_size=64):
+    def __init__(self, image_size=64, overfit_test_size=None):
         df = pd.read_csv("data/pairs.csv")
         all_embeddings = torch.load("text_embeddings.pt")
 
@@ -17,6 +17,12 @@ class DiffumojiDataset(Dataset):
             df.groupby("image_path").apply(lambda x: x.index.tolist()).to_dict()
         )
         self.unique_imgpath = list(self.imgpath2idx.keys())
+        if overfit_test_size is not None:
+            print(f"RUNNING OVERFIT TEST WITH {overfit_test_size} SAMPLES")
+            self.unique_imgpath = self.unique_imgpath[:overfit_test_size]
+            self.imgpath2idx = {
+                path: self.imgpath2idx[path] for path in self.unique_imgpath
+            }
         self.embeddings = all_embeddings
 
         base_transform = transforms.Compose(
