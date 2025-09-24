@@ -234,7 +234,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--num_workers",
         type=int,
-        default=8,
+        default=4,
         help="Number of workers for the Dataloader",
     )
     parser.add_argument(
