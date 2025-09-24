@@ -61,9 +61,12 @@ def build_dataset():
             except Exception as e:
                 print(f"Error converting {svg_path}: {e}")
                 continue
-            img = Image.open(temp_png_path)
-            img = img.resize((64, 64), Image.Resampling.LANCZOS)
-            img.save(png_path)
+            img = Image.open(temp_png_path).convert("RGBA")
+            # paste onto white background
+            background = Image.new("RGB", img.size, (255, 255, 255))
+            background.paste(img, mask=img.split()[3])  # use alpha as mask
+            background = background.resize((64, 64), Image.Resampling.LANCZOS)
+            background.save(png_path)
             os.remove(temp_png_path)
 
             base_annotation = annotation.strip()
