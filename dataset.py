@@ -26,7 +26,6 @@ class DiffumojiDataset(Dataset):
                 transforms.ColorJitter(
                     brightness=0.1, contrast=0.1, saturation=0.1, hue=0.1
                 ),
-                transforms.ToTensor(),
             ]
         )
 
