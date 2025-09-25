@@ -200,10 +200,9 @@ class GaussianDiffusion(nn.Module):
 
 
 def extract(a, t, x_shape):
-    """extract the appropriate t index for a batch of indices"""
-    batch_size = t.shape[0]
-    out = a.gather(-1, t)  # basically a[t] but for a batch of indices
-    return out.reshape(batch_size, *((1,) * (len(x_shape) - 1)))
+    # a: 1-D tensor of length T on the correct device
+    out = a[t].to(t.device)
+    return out.view(t.shape[0], *((1,) * (len(x_shape) - 1)))
 
 
 def get_beta_schedule(schedule_name, num_timesteps):
