@@ -16,7 +16,9 @@ class DiffumojiDataset(Dataset):
 
         # group by image path to find unique images and their caption indices
         self.imgpath2idx = (
-            df.groupby("image_path").apply(lambda x: x.index.tolist()).to_dict()
+            df.groupby("image_path")
+            .apply(lambda x: x.index.tolist(), include_groups=False)
+            .to_dict()
         )
         self.unique_imgpath = list(self.imgpath2idx.keys())
         if overfit_test_size is not None:
