@@ -1,8 +1,8 @@
-from datasets import tqdm
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import math
+from tqdm import tqdm
 
 
 class GaussianDiffusion(nn.Module):
@@ -39,7 +39,7 @@ class GaussianDiffusion(nn.Module):
         register_buffer("alphas", alphas)
         register_buffer("alphas_cumprod", alphas_cumprod)
 
-        # precompure the coeffes for the closed-form "jump ahead" formula
+        # precompute the coeffes for the closed-form "jump ahead" formula
         register_buffer("sqrt_alphas_cumprod", torch.sqrt(alphas_cumprod))
         register_buffer(
             "sqrt_one_minus_alphas_cumprod", torch.sqrt(1.0 - alphas_cumprod)
@@ -158,7 +158,12 @@ class GaussianDiffusion(nn.Module):
 
     @torch.no_grad()
     def sample(
-        self, batch_size=16, context=None, cfg_scale=3.0, return_all_timesteps=False
+        self,
+        batch_size=16,
+        context=None,
+        cfg_scale=3.0,
+        return_all_timesteps=False,
+        num_sample_steps=None,
     ):
         """generate samples from noise"""
         shape = (batch_size, self.channels, self.image_size, self.image_size)
@@ -167,15 +172,22 @@ class GaussianDiffusion(nn.Module):
         imgs = [img]
 
         if context is None:
-            # for now let's require context to be provided
             raise ValueError("Context must be provided for sampling")
 
+        if num_sample_steps is None:
+            num_sample_steps = self.num_timesteps
+
+        timesteps_to_visit = torch.linspace(
+            self.num_timesteps - 1, 0, num_sample_steps, dtype=torch.long
+        )
+
         for t in tqdm(
-            reversed(range(0, self.num_timesteps)),
+            timesteps_to_visit,
             desc="sampling loop time step",
-            total=self.num_timesteps,
         ):
-            t_batch = torch.full((batch_size,), t, device=device, dtype=torch.long)
+            t_batch = torch.full(
+                (batch_size,), t.item(), device=device, dtype=torch.long
+            )
             img = self.p_sample(img, t_batch, context, cfg_scale)
             imgs.append(img)
 

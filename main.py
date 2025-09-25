@@ -16,7 +16,9 @@ from unet import Unet
 from diffusion import GaussianDiffusion
 
 
-def load_checkpoint(path, model, optimizer, ema, scaler, device, use_mixed_precision=False):
+def load_checkpoint(
+    path, model, optimizer, ema, scaler, device, use_mixed_precision=False
+):
     print(f"Loading checkpoint from {path}")
     checkpoint = torch.load(path, map_location=device)
     model.model.load_state_dict(checkpoint["model_state_dict"])
@@ -99,7 +101,13 @@ def train(args):
     current_step = 1
     if args.resume_from_checkpoint:
         current_step = load_checkpoint(
-            args.resume_from_checkpoint, diffusion_model, optimizer, ema, scaler, device, args.mixed_precision
+            args.resume_from_checkpoint,
+            diffusion_model,
+            optimizer,
+            ema,
+            scaler,
+            device,
+            args.mixed_precision,
         )
     # create an infinite iterator from our dataloader
     data_iterator = itertools.cycle(dataloader)

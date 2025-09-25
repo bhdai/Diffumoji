@@ -62,7 +62,7 @@ class DiffumojiGenerator:
             embedding = self.clip_model.get_text_features(**inputs)
         return embedding
 
-    def generate(self, prompt, batch_size=1, cfg_scale=1.5):
+    def generate(self, prompt, batch_size=1, cfg_scale=1.5, num_inference_steps=1000):
         """Generate emoji images from text prompt"""
         text_embedding = self._get_text_embedding(prompt)
 
@@ -77,12 +77,14 @@ class DiffumojiGenerator:
                         batch_size=batch_size,
                         context=text_embedding,
                         cfg_scale=cfg_scale,
+                        num_sample_steps=num_inference_steps,
                     )
             else:
                 generated_images = self.diffusion_model.sample(
                     batch_size=batch_size,
                     context=text_embedding,
                     cfg_scale=cfg_scale,
+                    num_sample_steps=num_inference_steps,
                 )
         return generated_images
 
@@ -113,6 +115,12 @@ def main():
         "--cfg_scale", type=float, default=1.5, help="Classifier-free guidance scale"
     )
     parser.add_argument(
+        "--steps",
+        type=int,
+        default=1000,
+        help="Number of sampling steps to use for generation",
+    )
+    parser.add_argument(
         "--mixed_precision", action="store_true", help="Use mixed precision inference"
     )
 
@@ -120,12 +128,15 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device {device}")
 
-    generator = DiffumojiGenerator(args.checkpoint_path, device, use_mixed_precision=args.mixed_precision)
+    generator = DiffumojiGenerator(
+        args.checkpoint_path, device, use_mixed_precision=args.mixed_precision
+    )
 
     generated_images = generator.generate(
         prompt=args.prompt,
         batch_size=args.batch_size,
         cfg_scale=args.cfg_scale,
+        num_inference_steps=args.steps,
     )
     # make sure the ouput directory exists
     os.makedirs(
