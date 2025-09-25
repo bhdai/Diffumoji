@@ -16,7 +16,7 @@ from unet import Unet
 from diffusion import GaussianDiffusion
 
 
-def load_checkpoint(path, model, optimizer, ema, scaler, device):
+def load_checkpoint(path, model, optimizer, ema, scaler, device, use_mixed_precision=False):
     print(f"Loading checkpoint from {path}")
     checkpoint = torch.load(path, map_location=device)
     model.model.load_state_dict(checkpoint["model_state_dict"])
@@ -32,9 +32,9 @@ def load_checkpoint(path, model, optimizer, ema, scaler, device):
     else:
         print("EMA state dict not found in checkpoint.")
 
-    if "scaler_state_dict" in checkpoint:
+    if use_mixed_precision and "scaler_state_dict" in checkpoint:
         scaler.load_state_dict(checkpoint["scaler_state_dict"])
-    else:
+    elif use_mixed_precision:
         print("Scaler state dict not found in checkpoint.")
 
     start_step = checkpoint["step"]
@@ -86,7 +86,10 @@ def train(args):
 
     ema = EMA(diffusion_model, beta=0.9999, update_every=10).to(device)
 
-    scaler = GradScaler()
+    if args.mixed_precision:
+        scaler = GradScaler()
+    else:
+        scaler = None  # type: ignore
 
     os.makedirs("results", exist_ok=True)
 
@@ -96,7 +99,7 @@ def train(args):
     current_step = 1
     if args.resume_from_checkpoint:
         current_step = load_checkpoint(
-            args.resume_from_checkpoint, diffusion_model, optimizer, ema, scaler, device
+            args.resume_from_checkpoint, diffusion_model, optimizer, ema, scaler, device, args.mixed_precision
         )
     # create an infinite iterator from our dataloader
     data_iterator = itertools.cycle(dataloader)
@@ -110,18 +113,24 @@ def train(args):
         images = images.to(device)
         contexts = contexts.to(device)
 
-        # use autocast for forward pass
-        with autocast(
-            device_type="cuda" if torch.cuda.is_available() else "cpu",
-            dtype=torch.float16,
-        ):
-            # calculate loss
-            loss = diffusion_model.p_losses(images, contexts)
+        if args.mixed_precision:
+            # use autocast for forward pass
+            with autocast(
+                device_type="cuda" if torch.cuda.is_available() else "cpu",
+                dtype=torch.float16,
+            ):
+                # calculate loss
+                loss = diffusion_model.p_losses(images, contexts)
 
-        # scale the loss and backward
-        scaler.scale(loss).backward()
-        scaler.step(optimizer)  # upscale the gradients
-        scaler.update()
+            # scale the loss and backward
+            scaler.scale(loss).backward()  # type: ignore
+            scaler.step(optimizer)  # type: ignore # upscale the gradients
+            scaler.update()  # type: ignore
+        else:
+            # calculate loss without mixed precision
+            loss = diffusion_model.p_losses(images, contexts)
+            loss.backward()
+
         optimizer.zero_grad(set_to_none=True)
         ema.update()  # update ema after each optimizer step
 
@@ -171,8 +180,9 @@ def train(args):
                 "ema_model_state_dict": ema.ema_model.state_dict(),
                 "optimizer_state_dict": optimizer.state_dict(),
                 "loss": loss.item(),
-                "scaler_state_dict": scaler.state_dict(),
             }
+            if args.mixed_precision:
+                checkpoint["scaler_state_dict"] = scaler.state_dict()  # type: ignore
             torch.save(checkpoint, f"results/checkpoint_{current_step}.pt")
         current_step += 1
         pbar.update(1)
@@ -186,7 +196,7 @@ def train(args):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Train a Diffusion Model")
 
-    # add argumetns
+    # add arguments
     parser.add_argument("--image_size", type=int, default=64, help="Size of the images")
     parser.add_argument(
         "--timesteps", type=int, default=1000, help="Number of diffusion timesteps"
@@ -241,6 +251,9 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--no-wandb", action="store_true", help="Disable logging to Weights & Biases"
+    )
+    parser.add_argument(
+        "--mixed_precision", action="store_true", help="Use mixed precision training"
     )
 
     args = parser.parse_args()

@@ -1,5 +1,6 @@
 import argparse
 import torch
+from torch.amp import autocast
 from torchvision.utils import save_image
 from transformers import CLIPModel, CLIPProcessor
 from unet import Unet
@@ -39,8 +40,9 @@ def load_model_from_checkpoint(checkpoint_path, device, load_ema=True):
 
 
 class DiffumojiGenerator:
-    def __init__(self, checkpoint_path, device):
+    def __init__(self, checkpoint_path, device, use_mixed_precision=False):
         self.device = device
+        self.use_mixed_precision = use_mixed_precision
         self.diffusion_model = load_model_from_checkpoint(checkpoint_path, device)
         self.diffusion_model.eval()
 
@@ -66,11 +68,22 @@ class DiffumojiGenerator:
 
         print("Generating image...")
         with torch.no_grad():
-            generated_images = self.diffusion_model.sample(
-                batch_size=batch_size,
-                context=text_embedding,
-                cfg_scale=cfg_scale,
-            )
+            if self.use_mixed_precision:
+                with autocast(
+                    device_type="cuda" if torch.cuda.is_available() else "cpu",
+                    dtype=torch.float16,
+                ):
+                    generated_images = self.diffusion_model.sample(
+                        batch_size=batch_size,
+                        context=text_embedding,
+                        cfg_scale=cfg_scale,
+                    )
+            else:
+                generated_images = self.diffusion_model.sample(
+                    batch_size=batch_size,
+                    context=text_embedding,
+                    cfg_scale=cfg_scale,
+                )
         return generated_images
 
 
@@ -99,12 +112,15 @@ def main():
     parser.add_argument(
         "--cfg_scale", type=float, default=1.5, help="Classifier-free guidance scale"
     )
+    parser.add_argument(
+        "--mixed_precision", action="store_true", help="Use mixed precision inference"
+    )
 
     args = parser.parse_args()
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device {device}")
 
-    generator = DiffumojiGenerator(args.checkpoint_path, device)
+    generator = DiffumojiGenerator(args.checkpoint_path, device, use_mixed_precision=args.mixed_precision)
 
     generated_images = generator.generate(
         prompt=args.prompt,
