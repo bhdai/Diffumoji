@@ -27,7 +27,14 @@ class GaussianDiffusion(nn.Module):
         # a helper function to reister some constants as buffers to ensure that
         # they are on the same device as model parameters
         # can be access as self.name
-        register_buffer = lambda name, val: self.register_buffer(name, val.float())
+        def _reg_buf(name, val):
+            v = (
+                val
+                if isinstance(val, torch.Tensor)
+                else torch.tensor(val, dtype=torch.float32)
+            )
+            self.register_buffer(name, v)
+
         assert beta_schedule in ["linear", "cosine", "sigmoid"], (
             "beta_schedule must be one of 'linear', 'cosine', or 'sigmoid'"
         )
@@ -35,37 +42,33 @@ class GaussianDiffusion(nn.Module):
         self.num_timesteps = int(betas.shape[0])
         alphas = 1.0 - betas
         alphas_cumprod = torch.cumprod(alphas, dim=0)  # alpha_bar_t
-        register_buffer("betas", betas)
-        register_buffer("alphas", alphas)
-        register_buffer("alphas_cumprod", alphas_cumprod)
+        _reg_buf("betas", betas)
+        _reg_buf("alphas", alphas)
+        _reg_buf("alphas_cumprod", alphas_cumprod)
 
         # precompute the coeffes for the closed-form "jump ahead" formula
-        register_buffer("sqrt_alphas_cumprod", torch.sqrt(alphas_cumprod))
-        register_buffer(
-            "sqrt_one_minus_alphas_cumprod", torch.sqrt(1.0 - alphas_cumprod)
-        )
-        register_buffer("sqrt_recip_alphas_cumprod", torch.sqrt(1.0 / alphas_cumprod))
-        register_buffer(
-            "sqrt_recipm1_alphas_cumprod", torch.sqrt(1.0 / alphas_cumprod - 1)
-        )
+        _reg_buf("sqrt_alphas_cumprod", torch.sqrt(alphas_cumprod))
+        _reg_buf("sqrt_one_minus_alphas_cumprod", torch.sqrt(1.0 - alphas_cumprod))
+        _reg_buf("sqrt_recip_alphas_cumprod", torch.sqrt(1.0 / alphas_cumprod))
+        _reg_buf("sqrt_recipm1_alphas_cumprod", torch.sqrt(1.0 / alphas_cumprod - 1))
 
         alphas_cumprod_prev = F.pad(alphas_cumprod[:-1], (1, 0), value=1.0)
         # details about those coeffes please refer to https://arxiv.org/abs/2006.11239
-        register_buffer(
+        _reg_buf(
             "posterior_mean_coef1",
             betas * torch.sqrt(alphas_cumprod_prev) / (1.0 - alphas_cumprod),
         )
-        register_buffer(
+        _reg_buf(
             "posterior_mean_coef2",
             (1.0 - alphas_cumprod_prev) * torch.sqrt(alphas) / (1.0 - alphas_cumprod),
         )
         posterior_var = betas * (1.0 - alphas_cumprod_prev) / (1.0 - alphas_cumprod)
         posterior_std = torch.sqrt(posterior_var.clamp(min=1e-20))
-        register_buffer("posterior_std", posterior_std)
+        _reg_buf("posterior_std", posterior_std)
 
         snr = alphas_cumprod / (1 - alphas_cumprod)  # signal to nosie ratio
         loss_weights = torch.ones_like(snr) if objective == "pred_noise" else snr
-        register_buffer("loss_weights", loss_weights)
+        _reg_buf("loss_weights", loss_weights)
 
     def q_sample(self, x_start, t, noise=None):
         """Forward process: jumping directly to any noisy time step t"""
