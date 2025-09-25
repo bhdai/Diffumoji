@@ -148,7 +148,11 @@ def train(args):
 
         # save samples and checkpoints periodically
         if current_step != 0 and current_step % sample_every == 0:
-            print(f"\nStep {current_step}: Saving checkpoint and sampling...")
+            print(f"\nStep {current_step}: Sampling...")
+            if args.overfit_test_size is None:
+                print("Saving checkpoint...")
+            else:
+                print("(Overfiting test - skipping checkpoint)")
 
             diffusion_model.eval()  # switch to evaluation mode
             ema.ema_model.eval()
@@ -181,17 +185,18 @@ def train(args):
 
             diffusion_model.train()  # back to training mode
 
-            # save checkpoint
-            checkpoint = {
-                "step": current_step,
-                "model_state_dict": diffusion_model.model.state_dict(),
-                "ema_model_state_dict": ema.ema_model.state_dict(),
-                "optimizer_state_dict": optimizer.state_dict(),
-                "loss": loss.item(),
-            }
-            if args.mixed_precision:
-                checkpoint["scaler_state_dict"] = scaler.state_dict()  # type: ignore
-            torch.save(checkpoint, f"results/checkpoint_{current_step}.pt")
+            if args.overfit_test_size is None:
+                # save checkpoint
+                checkpoint = {
+                    "step": current_step,
+                    "model_state_dict": diffusion_model.model.state_dict(),
+                    "ema_model_state_dict": ema.ema_model.state_dict(),
+                    "optimizer_state_dict": optimizer.state_dict(),
+                    "loss": loss.item(),
+                }
+                if args.mixed_precision:
+                    checkpoint["scaler_state_dict"] = scaler.state_dict()  # type: ignore
+                torch.save(checkpoint, f"results/checkpoint_{current_step}.pt")
         current_step += 1
         pbar.update(1)
 
