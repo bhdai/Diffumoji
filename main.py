@@ -115,6 +115,8 @@ def train(args):
     # use tqdm for a live progress bar
     pbar = tqdm(initial=current_step, total=num_train_steps)
 
+    optimizer.zero_grad(set_to_none=True)
+
     while current_step <= num_train_steps:
         # get the next batch of data
         images, contexts = next(data_iterator)
@@ -139,7 +141,6 @@ def train(args):
             loss = diffusion_model.p_losses(images, contexts)
             loss.backward()
 
-        optimizer.zero_grad(set_to_none=True)
         ema.update()  # update ema after each optimizer step
 
         pbar.set_description(f"loss: {loss.item():.4f}")
