@@ -140,6 +140,7 @@ def train(args):
             # calculate loss without mixed precision
             loss = diffusion_model.p_losses(images, contexts)
             loss.backward()
+            optimizer.step()
 
         ema.update()  # update ema after each optimizer step
 
