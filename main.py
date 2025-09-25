@@ -4,8 +4,8 @@ import wandb
 import argparse
 import itertools
 import os
-from tqdm import tqdm
 import torch
+from tqdm import tqdm
 from torch.amp import GradScaler, autocast
 from ema_pytorch import EMA
 from torch.optim import Adam
@@ -65,12 +65,13 @@ def train(args):
         image_size=image_size, overfit_test_size=args.overfit_test_size
     )
 
+    pin_memory = device.type == "cuda"
     dataloader = DataLoader(
         dataset,
         batch_size=batch_size,
         shuffle=True,
         num_workers=args.num_workers,
-        pin_memory=True,
+        pin_memory=pin_memory,
         persistent_workers=True,
     )
 
@@ -86,7 +87,7 @@ def train(args):
 
     optimizer = Adam(diffusion_model.parameters(), lr=learning_rate)
 
-    ema = EMA(diffusion_model, beta=0.9999, update_every=10).to(device)
+    ema = EMA(diffusion_model.model, beta=0.9999, update_every=10).to(device)
 
     if args.mixed_precision:
         scaler = GradScaler()
@@ -125,9 +126,10 @@ def train(args):
 
         if args.mixed_precision:
             # use autocast for forward pass
+            dtype = torch.float16 if device.type == "cuda" else torch.bfloat16
             with autocast(
                 device_type="cuda" if torch.cuda.is_available() else "cpu",
-                dtype=torch.float16,
+                dtype=dtype,
             ):
                 # calculate loss
                 loss = diffusion_model.p_losses(images, contexts)
