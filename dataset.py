@@ -1,4 +1,5 @@
 import torch
+import random
 import pandas as pd
 from torch.utils.data import Dataset
 from torchvision import transforms
@@ -20,7 +21,7 @@ class DiffumojiDataset(Dataset):
         self.unique_imgpath = list(self.imgpath2idx.keys())
         if overfit_test_size is not None:
             print(f"RUNNING OVERFIT TEST WITH {overfit_test_size} SAMPLES")
-            self.unique_imgpath = self.unique_imgpath[:overfit_test_size]
+            self.unique_imgpath = random.sample(self.unique_imgpath, overfit_test_size)
             self.imgpath2idx = {
                 path: self.imgpath2idx[path] for path in self.unique_imgpath
             }
