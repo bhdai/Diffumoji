@@ -87,7 +87,7 @@ def train(args):
 
     optimizer = Adam(diffusion_model.parameters(), lr=learning_rate)
 
-    ema = EMA(diffusion_model.model, beta=0.9999, update_every=10).to(device)
+    ema = EMA(diffusion_model, beta=0.9999, update_every=10).to(device)
 
     if args.mixed_precision:
         scaler = GradScaler()
