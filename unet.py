@@ -29,13 +29,15 @@ class RMSNorm(nn.Module):
     of the activation
     """
 
-    def __init__(self, dim):
+    def __init__(self, dim, eps=1e-8):
         super().__init__()
-        self.scale = dim**0.5
+        self.eps = eps
         self.g = nn.Parameter(torch.ones((1, dim, 1, 1)))  # learnable gain per channel
 
     def forward(self, x):
-        return F.normalize(x, dim=1) * self.g * self.scale
+        rms = x.pow(2).mean(dim=1, keepdim=True).sqrt()
+        x_normed = x / (rms + self.eps)
+        return x_normed * self.g  # scale by learnable gain
 
 
 class Block(nn.Module):
