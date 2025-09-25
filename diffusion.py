@@ -181,15 +181,15 @@ class GaussianDiffusion(nn.Module):
             num_sample_steps = self.num_timesteps
 
         timesteps_to_visit = torch.linspace(
-            self.num_timesteps - 1, 0, num_sample_steps, dtype=torch.long
-        )
+            self.num_timesteps - 1, 0, num_sample_steps, device=device
+        ).long()
 
         for t in tqdm(
             timesteps_to_visit,
             desc="sampling loop time step",
         ):
             t_batch = torch.full(
-                (batch_size,), t.item(), device=device, dtype=torch.long
+                (batch_size,), int(t.item()), device=device, dtype=torch.long
             )
             img = self.p_sample(img, t_batch, context, cfg_scale)
             imgs.append(img)
