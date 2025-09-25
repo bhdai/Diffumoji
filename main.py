@@ -116,13 +116,13 @@ def train(args):
     # use tqdm for a live progress bar
     pbar = tqdm(initial=current_step, total=num_train_steps)
 
-    optimizer.zero_grad(set_to_none=True)
-
     while current_step <= num_train_steps:
         # get the next batch of data
         images, contexts = next(data_iterator)
         images = images.to(device)
         contexts = contexts.to(device)
+
+        optimizer.zero_grad(set_to_none=True)
 
         if args.mixed_precision:
             # use autocast for forward pass
